@@ -1,7 +1,46 @@
+# 🔹 Python
 __pycache__/
-.env
+*.py[cod]
+*$py.class
+
+# 🔹 Virtual Environment
 venv/
-*.pyc
+.env/
+.env.*
+
+# 🔹 Environment variables
+.env
+
+# 🔹 Database files (SQLite, local dev)
+*.db
+*.sqlite3
+
+# 🔹 Logs
+*.log
+
+# 🔹 OS files
 .DS_Store
-.idea/
+Thumbs.db
+
+# 🔹 VS Code / IDE
 .vscode/
+.idea/
+
+# 🔹 Pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 🔹 Build / dist
+build/
+dist/
+*.egg-info/
+
+# 🔹 Alembic (optional)
+alembic/versions/*.pyc
+
+# 🔹 Node (if you add frontend later)
+node_modules/
+
+# 🔹 Misc
+*.swp
