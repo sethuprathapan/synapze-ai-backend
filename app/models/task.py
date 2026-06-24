@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import String, Text, DateTime, ForeignKey, Enum
+from sqlalchemy import DateTime, Enum, ForeignKey, String, Text
 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -21,11 +21,12 @@ class Task(Base):
     )
 
     status: Mapped[str] = mapped_column(
-        Enum("pending", "in_progress", "completed", name="task_status_enum"),
+        Enum("pending", "in-progress", "completed", name="task_status_enum"),
         default="pending",
+        index=True,
     )
 
-    due_date: Mapped[datetime] = mapped_column(DateTime)
+    due_date: Mapped[datetime] = mapped_column(DateTime, index=True)
 
     assigned_to_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
 

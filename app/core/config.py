@@ -3,15 +3,18 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     # Database
-    DATABASE_URL: str
+    DATABASE_URL: str = "sqlite:///./synapze.db"
 
     # AI
-    GEMINI_API_KEY: str
+    GEMINI_API_KEY: str = ""
 
     # JWT
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+
+    # Email notifications
+    MAIL_FROM: str = "no-reply@synapze.local"
 
     model_config = SettingsConfigDict(env_file=".env")
 
