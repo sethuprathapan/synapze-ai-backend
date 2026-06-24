@@ -3,7 +3,7 @@ from fastapi import Depends
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.db.session import get_db
+from app.api.dependencies.database import get_db
 from app.schemas.auth import LoginRequest
 from app.services.auth_service import AuthService
 
