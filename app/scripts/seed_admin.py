@@ -1,6 +1,6 @@
 from app.db.session import SessionLocal
 from app.models.user import User
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_password
 
 
 def seed_admin():
@@ -9,7 +9,12 @@ def seed_admin():
     existing_user = db.query(User).filter(User.email == "admin@test.com").first()
 
     if existing_user:
-        print("Admin already exists")
+        if not verify_password("admin123", existing_user.password_hash):
+            existing_user.password_hash = hash_password("admin123")
+            db.commit()
+            print("Admin password updated successfully")
+        else:
+            print("Admin already exists")
         return
 
     admin = User(
