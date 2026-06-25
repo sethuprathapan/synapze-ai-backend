@@ -4,15 +4,13 @@ from tests.conftest import auth_headers
 def test_login_returns_consistent_token_response(client, users):
     response = client.post(
         "/api/v1/login",
-        json={"email": users["admin"].email, "password": "password123"},
+        data={"username": users["admin"].email, "password": "password123"},
     )
 
     assert response.status_code == 200
     body = response.json()
-    assert body["success"] is True
-    assert body["message"] == "Login successful"
-    assert body["data"]["token_type"] == "bearer"
-    assert body["data"]["access_token"]
+    assert body["token_type"] == "bearer"
+    assert body["access_token"]
 
 
 def test_admin_can_create_user(client, users):

@@ -6,7 +6,7 @@ from app.api.v1.users import router as users_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.tasks import router as tasks_router
 
-app = FastAPI(title="Synapze AI", version="1.0.0")
+app = FastAPI(title="Synapze --The Task Manager", version="1.0.0")
 
 app.include_router(chat_router, prefix="/api/v1", tags=["Chat"])
 app.include_router(users_router, prefix="/api/v1", tags=["Users"])

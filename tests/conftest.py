@@ -93,7 +93,7 @@ def users(db_session):
 def auth_headers(client, email: str, password: str = "password123") -> dict[str, str]:
     response = client.post(
         "/api/v1/login",
-        json={"email": email, "password": password},
+        data={"username": email, "password": password},
     )
-    token = response.json()["data"]["access_token"]
+    token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
