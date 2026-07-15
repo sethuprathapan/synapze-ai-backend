@@ -20,6 +20,7 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     name: str | None = None
     email: EmailStr | None = None
+    password: str | None = None
 
 
 class UserResponse(BaseModel):
@@ -28,5 +29,6 @@ class UserResponse(BaseModel):
     email: EmailStr
     role: UserRole
     created_at: datetime
+    password_hash: str | None = None
 
     model_config = {"from_attributes": True}
