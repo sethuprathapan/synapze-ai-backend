@@ -1,9 +1,16 @@
-# from app.models.chat import ChatMessage
-# from app.models.conversation import Conversation
-# from app.models.message import Message
-# from app.models.user import User
-# from app.models.task import Task
-# from app.models.task_history import TaskHistory
-# from app.models.comment import Comment
-# from app.models.refresh_token import RefreshToken
 from app.models.contact import Contact
+from app.models.notification import Notification
+from app.models.project import Project
+from app.models.refresh_token import RefreshToken
+from app.models.task import Task, TaskStatus
+from app.models.user import User
+
+__all__ = [
+    "Contact",
+    "Notification",
+    "Project",
+    "RefreshToken",
+    "Task",
+    "TaskStatus",
+    "User",
+]
