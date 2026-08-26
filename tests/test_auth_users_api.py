@@ -1,16 +1,41 @@
 from tests.conftest import auth_headers
 
 
-def test_login_returns_consistent_token_response(client, users):
-    response = client.post(
-        "/api/v1/login",
-        data={"username": users["admin"].email, "password": "password123"},
+def test_signup_and_login(client):
+    signup = client.post(
+        "/api/v1/signup",
+        json={
+            "name": "New User",
+            "email": "new.user@example.com",
+            "password": "password123",
+        },
     )
 
-    assert response.status_code == 200
-    body = response.json()
-    assert body["token_type"] == "bearer"
-    assert body["access_token"]
+    assert signup.status_code == 201
+    body = signup.json()
+    assert body["data"]["email"] == "new.user@example.com"
+    assert "password_hash" not in body["data"]
+
+    login = client.post(
+        "/api/v1/login",
+        data={"username": "new.user@example.com", "password": "password123"},
+    )
+    assert login.status_code == 200
+    assert login.json()["token_type"] == "bearer"
+    assert login.json()["access_token"]
+
+
+def test_duplicate_signup_is_rejected(client, users):
+    response = client.post(
+        "/api/v1/signup",
+        json={
+            "name": "Alice Again",
+            "email": users["alice"].email,
+            "password": "password123",
+        },
+    )
+
+    assert response.status_code == 409
 
 
 def test_admin_can_create_user(client, users):
@@ -18,30 +43,27 @@ def test_admin_can_create_user(client, users):
         "/api/v1/users",
         json={
             "name": "New Employee",
-            "email": "new.employee@example.com",
+            "email": "employee@example.com",
             "password": "password123",
-            "role": "employee",
+            "role": "user",
         },
         headers=auth_headers(client, users["admin"].email),
     )
 
     assert response.status_code == 201
-    body = response.json()
-    assert body["success"] is True
-    assert body["data"]["email"] == "new.employee@example.com"
-    assert "password_hash" not in body["data"]
+    assert response.json()["data"]["email"] == "employee@example.com"
 
 
-def test_manager_cannot_create_user(client, users):
+def test_non_admin_cannot_create_user(client, users):
     response = client.post(
         "/api/v1/users",
         json={
             "name": "Blocked User",
             "email": "blocked@example.com",
             "password": "password123",
-            "role": "employee",
+            "role": "user",
         },
-        headers=auth_headers(client, users["manager"].email),
+        headers=auth_headers(client, users["alice"].email),
     )
 
     assert response.status_code == 403

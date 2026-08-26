@@ -1,114 +1,105 @@
 from datetime import datetime, timedelta
 
-from app.models.task_history import TaskHistory
-from tests.conftest import auth_headers
+from app.models.notification import Notification
+from tests.conftest import auth_headers, create_project
 
 
-def task_payload(employee_id: int) -> dict:
+def task_payload(project_id: int, assignee_id: int | None = None) -> dict:
     return {
+        "project_id": project_id,
         "title": "Prepare onboarding checklist",
         "description": "Create checklist for new engineering hires.",
-        "priority": "high",
+        "status": "todo",
         "due_date": (datetime.utcnow() + timedelta(days=3)).isoformat(),
-        "assigned_to_id": employee_id,
+        "assignee_id": assignee_id,
     }
 
 
-def test_manager_can_create_task(client, db_session, users):
-    response = client.post(
+def test_project_crud_is_scoped_to_owner(client, users):
+    alice_headers = auth_headers(client, users["alice"].email)
+    bob_headers = auth_headers(client, users["bob"].email)
+    project = create_project(client, alice_headers)
+
+    blocked = client.get(f"/api/v1/projects/{project['id']}", headers=bob_headers)
+    assert blocked.status_code == 404
+
+    updated = client.patch(
+        f"/api/v1/projects/{project['id']}",
+        json={"name": "Updated launch"},
+        headers=alice_headers,
+    )
+    assert updated.status_code == 200
+    assert updated.json()["data"]["name"] == "Updated launch"
+
+
+def test_task_crud_filtering_and_cache_invalidation(client, users):
+    headers = auth_headers(client, users["alice"].email)
+    project = create_project(client, headers)
+    task = client.post(
         "/api/v1/tasks",
-        json=task_payload(users["employee"].id),
-        headers=auth_headers(client, users["manager"].email),
+        json=task_payload(project["id"], users["assignee"].id),
+        headers=headers,
     )
 
-    assert response.status_code == 201
-    body = response.json()
-    assert body["success"] is True
-    assert body["data"]["title"] == "Prepare onboarding checklist"
-    assert body["data"]["status"] == "pending"
-    assert body["data"]["assigned_by_id"] == users["manager"].id
+    assert task.status_code == 201
+    task_id = task.json()["data"]["id"]
 
-    history = db_session.query(TaskHistory).one()
-    assert history.old_status == "created"
-    assert history.new_status == "pending"
-    assert history.changed_by == users["manager"].id
+    first_list = client.get("/api/v1/tasks?status=todo", headers=headers)
+    assert first_list.status_code == 200
+    assert first_list.json()["data"]["total"] == 1
 
-
-def test_employee_cannot_create_task(client, users):
-    response = client.post(
-        "/api/v1/tasks",
-        json=task_payload(users["employee"].id),
-        headers=auth_headers(client, users["employee"].email),
+    update = client.patch(
+        f"/api/v1/tasks/{task_id}",
+        json={"status": "done"},
+        headers=headers,
     )
+    assert update.status_code == 200
 
-    assert response.status_code == 403
+    stale_check = client.get("/api/v1/tasks?status=todo", headers=headers)
+    assert stale_check.status_code == 200
+    assert stale_check.json()["data"]["total"] == 0
 
-
-def test_employee_can_only_view_assigned_tasks(client, users):
-    manager_headers = auth_headers(client, users["manager"].email)
-    first = client.post(
-        "/api/v1/tasks",
-        json=task_payload(users["employee"].id),
-        headers=manager_headers,
-    ).json()["data"]
-    client.post(
-        "/api/v1/tasks",
-        json=task_payload(users["other_employee"].id),
-        headers=manager_headers,
-    )
-
-    response = client.get(
-        "/api/v1/tasks",
-        headers=auth_headers(client, users["employee"].email),
-    )
-
-    assert response.status_code == 200
-    task_ids = [task["id"] for task in response.json()["data"]]
-    assert task_ids == [first["id"]]
+    done_tasks = client.get("/api/v1/tasks?status=done", headers=headers)
+    assert done_tasks.json()["data"]["items"][0]["id"] == task_id
 
 
-def test_status_update_creates_audit_history(client, db_session, users):
-    manager_headers = auth_headers(client, users["manager"].email)
+def test_user_cannot_access_task_in_another_users_project(client, users):
+    alice_headers = auth_headers(client, users["alice"].email)
+    bob_headers = auth_headers(client, users["bob"].email)
+    project = create_project(client, alice_headers)
     task_id = client.post(
         "/api/v1/tasks",
-        json=task_payload(users["employee"].id),
-        headers=manager_headers,
+        json=task_payload(project["id"]),
+        headers=alice_headers,
     ).json()["data"]["id"]
 
     response = client.patch(
         f"/api/v1/tasks/{task_id}",
-        json={"status": "in-progress"},
-        headers=manager_headers,
+        json={"status": "in_progress"},
+        headers=bob_headers,
+    )
+
+    assert response.status_code == 404
+
+
+def test_task_update_creates_background_notifications(client, db_session, users):
+    headers = auth_headers(client, users["alice"].email)
+    project = create_project(client, headers)
+    task_id = client.post(
+        "/api/v1/tasks",
+        json=task_payload(project["id"]),
+        headers=headers,
+    ).json()["data"]["id"]
+
+    response = client.patch(
+        f"/api/v1/tasks/{task_id}",
+        json={"assignee_id": users["assignee"].id, "status": "in_progress"},
+        headers=headers,
     )
 
     assert response.status_code == 200
-    assert response.json()["data"]["status"] == "in-progress"
-
-    history = (
-        db_session.query(TaskHistory)
-        .filter(TaskHistory.task_id == task_id)
-        .order_by(TaskHistory.id.asc())
-        .all()
-    )
-    assert [(row.old_status, row.new_status) for row in history] == [
-        ("created", "pending"),
-        ("pending", "in-progress"),
+    notifications = db_session.query(Notification).order_by(Notification.type.asc()).all()
+    assert [notification.type for notification in notifications] == [
+        "status_changed",
+        "task_reassigned",
     ]
-
-
-def test_assigned_employee_can_comment_on_task(client, users):
-    manager_headers = auth_headers(client, users["manager"].email)
-    task_id = client.post(
-        "/api/v1/tasks",
-        json=task_payload(users["employee"].id),
-        headers=manager_headers,
-    ).json()["data"]["id"]
-
-    response = client.post(
-        f"/api/v1/tasks/{task_id}/comments",
-        json={"comment": "I started working on this task."},
-        headers=auth_headers(client, users["employee"].email),
-    )
-
-    assert response.status_code == 201
-    assert response.json()["data"]["comment"] == "I started working on this task."
