@@ -17,3 +17,12 @@ def create_contact(contact: ContactRequest, db: Session = Depends(get_db)):
         data=ContactResponse.model_validate(db_contact)
     )
 
+
+@router.get("", response_model=ApiResponse, status_code=status.HTTP_200_OK)
+def get_contacts(db: Session = Depends(get_db), contact: ContactRequest = None):
+    db_contacts = ContactService.get_contacts(db=db, contact=contact)
+    return ApiResponse(
+        success=True,
+        message="Contacts retrieved successfully",
+        data=[ContactResponse.model_validate(contact) for contact in db_contacts]
+    )
