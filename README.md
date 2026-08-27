@@ -16,9 +16,12 @@ Useful endpoints:
 - `POST /api/v1/login` returns a bearer token. Send form fields `username` and `password`.
 - `POST /api/v1/projects` creates a project for the authenticated user.
 - `GET /api/v1/projects` lists only the authenticated user's projects.
+- `GET /api/v1/projects/{project_id}`, `PATCH /api/v1/projects/{project_id}`, `PUT /api/v1/projects/{project_id}`, and `DELETE /api/v1/projects/{project_id}` manage a single owned project.
 - `POST /api/v1/tasks` creates a task inside one of the authenticated user's projects.
 - `GET /api/v1/tasks?status=todo&assignee_id=1&due_from=2026-08-01T00:00:00&due_to=2026-09-01T00:00:00&limit=20&offset=0` filters tasks with pagination.
+- `GET /api/v1/tasks/{task_id}`, `PATCH /api/v1/tasks/{task_id}`, `PUT /api/v1/tasks/{task_id}`, and `DELETE /api/v1/tasks/{task_id}` manage a single owned task.
 - `GET /api/v1/notifications` lists notification records for tasks in the authenticated user's projects.
+- `POST /api/v1/contacts` accepts contact messages; `GET /api/v1/contacts` is admin-only and supports `name` and `email` query filters.
 - `GET /health` and `GET /metrics` expose basic operational status.
 
 For local development without Docker:

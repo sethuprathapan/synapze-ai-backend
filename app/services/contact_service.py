@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 
-from app.schemas.contact import ContactRequest
 from app.models.contact import Contact
+from app.schemas.contact import ContactRequest
 
 
 class ContactService:
@@ -11,7 +11,7 @@ class ContactService:
         new_contact = Contact(
             name=contact.name,
             email=contact.email,
-            message=contact.message
+            message=contact.message,
         )
         db.add(new_contact)
         db.commit()
@@ -19,13 +19,11 @@ class ContactService:
         return new_contact
 
     @staticmethod
-    def get_contacts(db: Session, contact: ContactRequest = None) -> list[Contact]:
+    def get_contacts(db: Session, name: str | None = None, email: str | None = None) -> list[Contact]:
         query = db.query(Contact)
-        if contact:
-            if contact.name:
-                query = query.filter(Contact.name.ilike(f"%{contact.name}%"))
-            if contact.email:
-                query = query.filter(Contact.email.ilike(f"%{contact.email}%"))
-        return query.all()
-
+        if name:
+            query = query.filter(Contact.name.ilike(f"%{name}%"))
+        if email:
+            query = query.filter(Contact.email.ilike(f"%{email}%"))
+        return query.order_by(Contact.id.asc()).all()
 

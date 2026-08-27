@@ -1,8 +1,7 @@
-from datetime import datetime
-
 from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
+from app.core.time import utc_now
 from app.models.notification import Notification
 from app.models.task import Task, TaskStatus
 
@@ -60,9 +59,10 @@ def create_reassignment_notification(task_id: int) -> None:
 def scan_overdue_tasks() -> int:
     db = notification_session_factory()
     try:
+        now = utc_now()
         overdue_tasks = (
             db.query(Task)
-            .filter(Task.due_date < datetime.utcnow())
+            .filter(Task.due_date < now)
             .filter(Task.status != TaskStatus.DONE.value)
             .filter(Task.overdue_notified_at.is_(None))
             .all()
@@ -74,7 +74,7 @@ def scan_overdue_tasks() -> int:
                 "task_overdue",
                 f'Task "{task.title}" is overdue.',
             )
-            task.overdue_notified_at = datetime.utcnow()
+            task.overdue_notified_at = now
             db.add(task)
         db.commit()
         return len(overdue_tasks)
