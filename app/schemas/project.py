@@ -13,6 +13,10 @@ class ProjectUpdate(BaseModel):
     description: str | None = None
 
 
+class ProjectReplace(ProjectCreate):
+    pass
+
+
 class ProjectResponse(BaseModel):
     id: int
     name: str
