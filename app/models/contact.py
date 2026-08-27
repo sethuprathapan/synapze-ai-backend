@@ -4,6 +4,7 @@ from sqlalchemy import String, DateTime
 
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.time import utc_now
 from app.db.base import Base
 
 
@@ -18,4 +19,4 @@ class Contact(Base):
 
     message: Mapped[str] = mapped_column(String(500))
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
