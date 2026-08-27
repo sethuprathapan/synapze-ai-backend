@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user
@@ -22,7 +23,7 @@ def list_notifications(
         db.query(Notification)
         .join(Task)
         .join(Project)
-        .filter(Project.owner_id == current_user.id)
+        .filter(or_(Project.owner_id == current_user.id, Notification.user_id == current_user.id))
         .order_by(Notification.id.asc())
         .all()
     )

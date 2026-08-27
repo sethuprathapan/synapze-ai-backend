@@ -10,7 +10,7 @@ from app.models.project import Project
 from app.models.task import Task, TaskStatus
 from app.models.user import User
 from app.schemas.common import ApiResponse
-from app.schemas.task import PaginatedTasks, TaskCreate, TaskResponse, TaskUpdate
+from app.schemas.task import PaginatedTasks, TaskCreate, TaskReplace, TaskResponse, TaskUpdate
 from app.services.cache import task_cache
 from app.services.notifications import create_reassignment_notification, create_status_change_notification
 
@@ -25,6 +25,7 @@ def create_task(
     current_user: User = Depends(get_current_user),
 ):
     project = _owned_project(db, payload.project_id, current_user.id)
+    _validate_assignee(db, payload.assignee_id)
     task = Task(
         project_id=project.id,
         title=payload.title,
@@ -53,6 +54,9 @@ def list_tasks(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if due_from and due_to and due_from > due_to:
+        raise HTTPException(status_code=400, detail="due_from must be before due_to")
+
     key = ":".join(
         [
             f"tasks:{current_user.id}",
@@ -109,7 +113,12 @@ def update_task(
     old_status = task.status
     old_assignee_id = task.assignee_id
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    if not updates:
+        raise HTTPException(status_code=400, detail="At least one field is required")
+    _validate_assignee(db, updates.get("assignee_id"))
+
+    for field, value in updates.items():
         if isinstance(value, TaskStatus):
             value = value.value
         setattr(task, field, value)
@@ -125,6 +134,40 @@ def update_task(
         _enqueue_reassignment(background_tasks, task.id)
 
     return ApiResponse(message="Task updated", data=TaskResponse.model_validate(task))
+
+
+@router.put("/{task_id}", response_model=ApiResponse)
+def replace_task(
+    task_id: int,
+    payload: TaskReplace,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    task = _owned_task(db, task_id, current_user.id)
+    _owned_project(db, payload.project_id, current_user.id)
+    _validate_assignee(db, payload.assignee_id)
+    old_status = task.status
+    old_assignee_id = task.assignee_id
+
+    task.project_id = payload.project_id
+    task.title = payload.title
+    task.description = payload.description
+    task.status = payload.status.value
+    task.assignee_id = payload.assignee_id
+    task.due_date = payload.due_date
+
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+    task_cache.invalidate_owner(current_user.id)
+
+    if old_status != task.status:
+        _enqueue_status_change(background_tasks, task.id, old_status, task.status)
+    if old_assignee_id != task.assignee_id and task.assignee_id:
+        _enqueue_reassignment(background_tasks, task.id)
+
+    return ApiResponse(message="Task replaced", data=TaskResponse.model_validate(task))
 
 
 @router.delete("/{task_id}", response_model=ApiResponse)
@@ -156,6 +199,11 @@ def _owned_task(db: Session, task_id: int, owner_id: int) -> Task:
 
 def _owned_tasks_query(db: Session, owner_id: int):
     return db.query(Task).join(Project).filter(Project.owner_id == owner_id)
+
+
+def _validate_assignee(db: Session, assignee_id: int | None) -> None:
+    if assignee_id is not None and not db.get(User, assignee_id):
+        raise HTTPException(status_code=400, detail="Assignee not found")
 
 
 def _enqueue_reassignment(background_tasks: BackgroundTasks, task_id: int) -> None:

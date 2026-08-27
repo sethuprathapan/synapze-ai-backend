@@ -6,7 +6,7 @@ from app.api.dependencies.database import get_db
 from app.models.project import Project
 from app.models.user import User
 from app.schemas.common import ApiResponse
-from app.schemas.project import ProjectCreate, ProjectResponse, ProjectUpdate
+from app.schemas.project import ProjectCreate, ProjectReplace, ProjectResponse, ProjectUpdate
 from app.services.cache import task_cache
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
@@ -52,12 +52,31 @@ def update_project(
     current_user: User = Depends(get_current_user),
 ):
     project = _owned_project(db, project_id, current_user.id)
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    if not updates:
+        raise HTTPException(status_code=400, detail="At least one field is required")
+    for field, value in updates.items():
         setattr(project, field, value)
     db.add(project)
     db.commit()
     db.refresh(project)
     return ApiResponse(message="Project updated", data=ProjectResponse.model_validate(project))
+
+
+@router.put("/{project_id}", response_model=ApiResponse)
+def replace_project(
+    project_id: int,
+    payload: ProjectReplace,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    project = _owned_project(db, project_id, current_user.id)
+    project.name = payload.name
+    project.description = payload.description
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+    return ApiResponse(message="Project replaced", data=ProjectResponse.model_validate(project))
 
 
 @router.delete("/{project_id}", response_model=ApiResponse)

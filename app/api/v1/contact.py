@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
+
 from app.api.dependencies.database import get_db
-from app.services.contact_service import ContactService
-from app.schemas.common import ApiResponse
+from app.api.dependencies.permissions import require_roles
 from app.schemas.contact import ContactRequest, ContactResponse
+from app.schemas.common import ApiResponse
+from app.services.contact_service import ContactService
 
 router = APIRouter(prefix="/contacts", tags=["Contact"])
 
@@ -14,15 +16,20 @@ def create_contact(contact: ContactRequest, db: Session = Depends(get_db)):
     return ApiResponse(
         success=True,
         message="Contact message sent successfully",
-        data=ContactResponse.model_validate(db_contact)
+        data=ContactResponse.model_validate(db_contact),
     )
 
 
 @router.get("", response_model=ApiResponse, status_code=status.HTTP_200_OK)
-def get_contacts(db: Session = Depends(get_db), contact: ContactRequest = None):
-    db_contacts = ContactService.get_contacts(db=db, contact=contact)
+def get_contacts(
+    name: str | None = Query(default=None, max_length=100),
+    email: str | None = Query(default=None, max_length=255),
+    db: Session = Depends(get_db),
+    _current_user=Depends(require_roles("admin")),
+):
+    db_contacts = ContactService.get_contacts(db=db, name=name, email=email)
     return ApiResponse(
         success=True,
         message="Contacts retrieved successfully",
-        data=[ContactResponse.model_validate(contact) for contact in db_contacts]
+        data=[ContactResponse.model_validate(contact) for contact in db_contacts],
     )
