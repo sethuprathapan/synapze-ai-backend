@@ -64,10 +64,4 @@ pytest
 
 The GitHub Actions workflow in `.github/workflows/ci.yml` runs lint and tests on push and pull request.
 
-## Tradeoffs And What I Would Do With More Time
 
-- The metrics endpoint is intentionally basic. I would replace it with `prometheus-client` counters and histograms before production.
-- The worker uses Celery beat inside the worker container to keep Compose simple. For production, I would split scheduler and worker processes.
-- Notification delivery is stored in the database only, as requested. A production version would add provider adapters and retry/dead-letter handling.
-- Cache invalidation is owner-scoped and simple. At higher scale, I would use structured Redis key versioning instead of scanning owner key prefixes.
-- Role support is minimal because the assignment's key authorization rule is project ownership.
