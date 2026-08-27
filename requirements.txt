@@ -39,6 +39,7 @@ pydantic_core==2.46.4
 pyparsing==3.3.2
 pytest==9.0.2
 python-dotenv==1.2.2
+python-multipart==0.0.20
 python-jose[cryptography]==3.5.0
 redis==7.1.0
 requests==2.34.2
